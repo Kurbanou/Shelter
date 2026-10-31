@@ -1,82 +1,80 @@
-
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const header = document.getElementById('header');
   const homeSection = document.getElementById('home');
-  const headerOffset = 120; // Смещение на 100px
+  const headerOffset = 120;
   const burger = document.querySelector('.header__burger');
   const body = document.querySelector('body');
-  const links = header.querySelectorAll('li a'); // Изменено на 'a', предполагая, что ссылки находятся в 'li'
   const overlay = document.querySelector('.overlay-navigation');
+
+  // --- Меню ---
+  if (burger) {
+    burger.addEventListener('click', toggleMenu);
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', function (event) {
+      if (event.target === overlay) {
+        toggleMenu();
+      }
+    });
+  }
+
+  if (header) {
+    const links = header.querySelectorAll('li a');
+    links.forEach(link => {
+      link.addEventListener('click', function () {
+        if (body.classList.contains('menu_open')) {
+          toggleMenu();
+        }
+      });
+    });
+  }
 
   function toggleMenu() {
     return body.classList.toggle('menu_open');
   }
 
-  // Добавляем обработчики событий для открытия/закрытия меню
-  burger.addEventListener('click', toggleMenu);
-  overlay.addEventListener('click', function(event) {
-    if (event.target === overlay) {
-      toggleMenu();
-    }
-  });
-
-  // Добавляем обработчики событий для всех ссылок меню
-  links.forEach(link => {
-    link.addEventListener('click', function(event) {
-      if (body.classList.contains('menu_open')) {
-        toggleMenu();
-      }
-    });
-  });
-
-  // Функция для проверки положения прокрутки и добавления/удаления класса
+  // --- Скролл хедера ---
   function checkScrollPosition() {
-    if (homeSection){
-      const scrollPosition = window.scrollY;
-      const homeSectionTop = homeSection.offsetTop;
-      const homeSectionHeight = homeSection.offsetHeight;
-  
-      if (scrollPosition >= homeSectionTop && scrollPosition < homeSectionTop + homeSectionHeight) {
-        header.classList.add('navbar');
-      } else {
-        header.classList.remove('navbar');
-      }
+    if (!homeSection || !header) return;
+    const scrollPosition = window.scrollY;
+    const homeSectionTop = homeSection.offsetTop;
+    const homeSectionHeight = homeSection.offsetHeight;
 
+    if (scrollPosition >= homeSectionTop && scrollPosition < homeSectionTop + homeSectionHeight) {
+      header.classList.add('navbar');
+    } else {
+      header.classList.remove('navbar');
     }
-   
   }
 
-  // Функция для коррекции прокрутки на высоту header
+  // --- Коррекция прокрутки по якорю ---
   function adjustAnchorScroll() {
-    if (window.location.hash) {
-      const targetId = window.location.hash.substring(1);
-      const targetElement = document.getElementById(targetId);
+    if (!window.location.hash) return;
+    const targetId = window.location.hash.substring(1);
+    const targetElement = document.getElementById(targetId);
+    if (!targetElement) return;
 
-      if (targetElement) {
-        const elementPosition = targetElement.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    const elementPosition = targetElement.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth'
-        });
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
 
-        // Удаляем хеш из URL после прокрутки, чтобы избежать смещения при повторном клике
-        history.pushState(null, null, window.location.pathname);
-      }
-    }
+    // replaceState вместо pushState — не засоряем историю и сохраняем search
+    history.replaceState(null, '', window.location.pathname + window.location.search);
   }
 
-  // Вызываем функции при загрузке страницы и при прокрутке
-  checkScrollPosition(); // Проверяем положение при загрузке страницы
-  adjustAnchorScroll(); // Корректируем прокрутку при загрузке страницы
+  checkScrollPosition();
+  adjustAnchorScroll();
 
-  window.addEventListener('scroll', checkScrollPosition); // Отслеживаем прокрутку
-  window.addEventListener('hashchange', adjustAnchorScroll); // Корректируем прокрутку при смене якоря
+  window.addEventListener('scroll', checkScrollPosition);
+  window.addEventListener('hashchange', adjustAnchorScroll);
 });
-//+++++++++++++++++++++++++++++++++++++
-//+++++++++++++++++++++++++++++++++++++
-//+++++++++++++++++++++++++++++++++++++
+
+// =====================================================================
+// Слайдеры и пагинация
+// =====================================================================
+
 const leftBtn = document.querySelector('#left');
 const rightBtn = document.querySelector('#right');
 const slider1 = document.querySelector('#slider1');
@@ -86,24 +84,31 @@ const btnLeft = document.querySelector('#btnLeft');
 const numList = document.querySelector('#numList');
 const btnRight = document.querySelector('#btnRight');
 const last = document.querySelector('#last');
-let numberPage = 1;
-let combination = [];
 
-// Функция для перемещения первых n элементов массива в конец
-function rotateArrayRight(arr, n) { 
-  const rotatedPart = arr.slice(0, n);
-  const remainingPart = arr.slice(n);  
-  return remainingPart.concat(rotatedPart);
+// Единое состояние модуля
+const state = {
+  petsData: [],       // текущий порядок для slider1
+  petsData2: [],      // «бесконечная» лента для slider2
+  combination: [],
+  currentPage: 1,
+  maxPages: 1,
+};
+
+// --- Утилиты ---
+function rotateArrayRight(arr, n) {
+  if (!arr.length) return arr.slice();
+  n = n % arr.length;
+  if (n === 0) return arr.slice();
+  return arr.slice(-n).concat(arr.slice(0, -n));
 }
 
-// Функция для перемещения последних n элементов массива в начало
-function rotateArrayLeft(arr, n) { 
-  const rotatedPart = arr.slice(-n);
-  const remainingPart = arr.slice(0, -n);  
-  return rotatedPart.concat(remainingPart);
+function rotateArrayLeft(arr, n) {
+  if (!arr.length) return arr.slice();
+  n = n % arr.length;
+  if (n === 0) return arr.slice();
+  return arr.slice(n).concat(arr.slice(0, n));
 }
 
-// Функция для перемешивания массива
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -111,47 +116,32 @@ function shuffleArray(array) {
   }
 }
 
-// Функция для создания массива второго слайдера
 function createPetsData2(petsData) {
   const petsData2 = [];
-  let currentPetsData = [...petsData]; // Копируем исходный массив
-
+  let currentPetsData = [...petsData];
   for (let i = 0; i < 6; i++) {
-    // Копируем текущий массив в petsData2
     petsData2.push(...currentPetsData);
-    // Ротируем массив
     currentPetsData = rotateArrayRight(currentPetsData, 3);
   }
-
   return petsData2;
 }
 
-
-// Функция для определения количества карточек на первом слайдере
 function getNumPetsForSlider(slider) {
   const screenWidth = window.innerWidth;
   if (slider === slider1) {
-    if (screenWidth <= 767) {
-      return 1;
-    } else if (screenWidth <= 1279) {
-      return 2;
-    } else {
-      return 3;
-    }  
+    if (screenWidth <= 767) return 1;
+    if (screenWidth <= 1279) return 2;
+    return 3;
   }
   if (slider === slider2) {
-    if (screenWidth <= 767) {
-      return 3;
-    } else if (screenWidth <= 1279) {
-      return 6;
-    } else {
-      return 8;
-    }  
+    if (screenWidth <= 767) return 3;
+    if (screenWidth <= 1279) return 6;
+    return 8;
   }
+  return 0;
 }
 
-// Функция создания карточки питомца
-function createCart(pet) { 
+function createCart(pet) {
   return `
     <div class="pets_cart">
       <div class="foto_pet">
@@ -165,8 +155,12 @@ function createCart(pet) {
   `;
 }
 
-// Функция попапа
+// --- Попап ---
 function popupCreate(pet) {
+  // не даём открыть второй попап
+  const existing = document.querySelector('.popup');
+  if (existing) existing.remove();
+
   const popup = document.createElement('div');
   popup.className = 'popup';
   popup.innerHTML = `
@@ -186,274 +180,194 @@ function popupCreate(pet) {
       </div>
     </div>`;
 
-  // Блокируем скролл страницы при открытии попапа
   document.body.classList.add('no-scroll');
 
-  document.querySelector('footer').appendChild(popup);
+  // fallback: если footer нет — в body
+  const container = document.querySelector('footer') || document.body;
+  container.appendChild(popup);
 
-  // Закрытие по клику на кнопку "x"
-  document.querySelector('#close').addEventListener('click', () => {
-    closePopup(popup);
-  });
-
-  // Закрытие по клику вне области popup_inner
+  popup.querySelector('#close').addEventListener('click', () => closePopup(popup));
   popup.addEventListener('click', (event) => {
-    if (event.target === popup) {
-      closePopup(popup);
-    }
+    if (event.target === popup) closePopup(popup);
   });
 }
 
 function closePopup(popup) {
-  // Убираем блокировку скролла при закрытии попапа
   document.body.classList.remove('no-scroll');
   popup.remove();
 }
 
+// --- Загрузка данных ---
 async function loadPetsData() {
   try {
     const response = await fetch('../shelter/assets/js/petsBase.json');
     const data = await response.json();
-    shuffleArray(data);    
+    shuffleArray(data);
     return data;
   } catch (error) {
-    console.error('Ошибка:', error);
+    console.error('Ошибка загрузки питомцев:', error);
+    return [];
   }
 }
 
+// --- Рендер карточек ---
 function displayPets(slider, petsData, numPets) {
+  if (!slider) return;
   slider.innerHTML = '';
-  for (let i = 0; i < numPets; i++) {
+  const count = Math.min(numPets, petsData.length);
+  for (let i = 0; i < count; i++) {
     const pet = petsData[i];
-    const cartHTML = createCart(pet);
-    
-    // Создаем временный контейнер для карточки
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = cartHTML;
-    
+    tempDiv.innerHTML = createCart(pet);
     const cartElement = tempDiv.firstElementChild;
-
-    // Добавляем обработчик клика на карточку
-    cartElement.addEventListener('click', () => {
-      popupCreate(pet);
-    });
-
-    // Добавляем карточку в слайдер
+    cartElement.addEventListener('click', () => popupCreate(pet));
     slider.appendChild(cartElement);
   }
 }
 
+// --- Пересчёт страниц ---
+function recalcMaxPages() {
+  const perPage = getNumPetsForSlider(slider2);
+  state.maxPages = perPage > 0 ? Math.max(1, Math.ceil(state.petsData2.length / perPage)) : 1;
+  if (state.currentPage > state.maxPages) state.currentPage = state.maxPages;
+}
 
-// Функция для обновления отображения питомцев на слайдерах
-function updatePetsDisplay(petsData, petsData2) {
+// --- Обновление обоих слайдеров ---
+function updatePetsDisplay() {
   const numPets1 = getNumPetsForSlider(slider1);
   const numPets2 = getNumPetsForSlider(slider2);
 
-  if (slider1) {
-    displayPets(slider1, petsData, numPets1);
-  }
-  if (slider2) {  
-    displayPets(slider2, petsData2, numPets2);
-  }
-}
+  if (slider1) displayPets(slider1, state.petsData, numPets1);
 
-function checkCombinationForShuffle(combination) {
-  if (combination.slice(-4).join('') === 'llrr') {
-    shuffleArray(window.petsData);
-    console.log('получили новый набор карточек');
-    combination.length = 0; // Очистка комбинации
+  if (slider2) {
+    recalcMaxPages();
+    const start = numPets2 * (state.currentPage - 1);
+    const pageData = state.petsData2.slice(start, start + numPets2);
+    displayPets(slider2, pageData, numPets2);
   }
 }
 
+// --- Пересборка petsData2 (после шаффла petsData) ---
+function rebuildPetsData2() {
+  state.petsData2 = createPetsData2(state.petsData);
+  recalcMaxPages();
+}
 
-// Загрузка данных и обновление отображения
+// --- Проверка комбинации l/r ---
+function checkCombinationForShuffle() {
+  if (state.combination.slice(-4).join('') === 'llrr') {
+    shuffleArray(state.petsData);
+    rebuildPetsData2();
+    state.combination.length = 0;
+    state.currentPage = 1;
+    updatePetsDisplay();
+  }
+}
+
+// --- Пагинация ---
+function updatePaginationButtons() {
+  if (!first || !btnLeft || !btnRight || !last) return;
+
+  const isFirst = state.currentPage === 1;
+  const isLast = state.currentPage === state.maxPages;
+
+  first.classList.toggle('inactive', isFirst);
+  btnLeft.classList.toggle('inactive', isFirst);
+  btnRight.classList.toggle('inactive', isLast);
+  last.classList.toggle('inactive', isLast);
+
+  if (numList) numList.textContent = String(state.currentPage);
+}
+
+function goToPage(page) {
+  const target = Math.min(Math.max(1, page), state.maxPages);
+  if (target === state.currentPage) return;
+  state.currentPage = target;
+  updatePetsDisplay();
+  updatePaginationButtons();
+}
+
+function goToFirstPage() {
+  goToPage(1);
+}
+
+function goToLastPage() {
+  goToPage(state.maxPages);
+}
+
+function goToPreviousPage() {
+  goToPage(state.currentPage - 1);
+}
+
+function goToNextPage() {
+  goToPage(state.currentPage + 1);
+}
+
+function initializePagination() {
+  if (!first || !btnLeft || !numList || !btnRight || !last) return;
+
+  state.currentPage = 1;
+  recalcMaxPages();
+  updatePaginationButtons();
+
+  // снимаем возможные старые обработчики (на случай повторной инициализации)
+  btnRight.removeEventListener('click', goToNextPage);
+  last.removeEventListener('click', goToLastPage);
+  first.removeEventListener('click', goToFirstPage);
+  btnLeft.removeEventListener('click', goToPreviousPage);
+
+  btnRight.addEventListener('click', goToNextPage);
+  last.addEventListener('click', goToLastPage);
+  first.addEventListener('click', goToFirstPage);
+  btnLeft.addEventListener('click', goToPreviousPage);
+}
+
+// --- Ресайз ---
+let resizeTimer = null;
+function handleResize() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    recalcMaxPages();
+    updatePetsDisplay();
+    updatePaginationButtons();
+  }, 150);
+}
+
+// --- Точка входа ---
 loadPetsData().then(petsData => {
-  if (petsData) {
-    window.petsData = petsData;
+  if (!petsData || !petsData.length) {
+    console.warn('Список питомцев пуст или не загрузился');
+    return;
+  }
 
-    // Создаем массив petsData2 на основе перемешивания petsData
-    const petsData2 = createPetsData2(petsData);
+  state.petsData = petsData;
+  state.petsData2 = createPetsData2(petsData);
+  state.currentPage = 1;
 
-    // Обновляем отображение слайдеров
-    updatePetsDisplay(petsData, petsData2);
+  updatePetsDisplay();
 
-    // Добавляем обработчик для изменения размера окна
-    window.addEventListener('resize', () => updatePetsDisplay(petsData, petsData2));
-
-
-
-  // Добавляем обработчики событий для кнопок
+  // стрелки slider1
   if (leftBtn && rightBtn) {
     leftBtn.addEventListener('click', () => {
-      combination.push('l');
-      checkCombinationForShuffle(combination);
-      window.petsData = rotateArrayLeft(window.petsData, getNumPetsForSlider(slider1));
-      updatePetsDisplay(window.petsData);
+      state.combination.push('l');
+      state.petsData = rotateArrayLeft(state.petsData, getNumPetsForSlider(slider1));
+      updatePetsDisplay();
+      checkCombinationForShuffle();
     });
 
     rightBtn.addEventListener('click', () => {
-      combination.push('r');
-      checkCombinationForShuffle(combination);
-      window.petsData = rotateArrayRight(window.petsData, getNumPetsForSlider(slider1));
-      updatePetsDisplay(window.petsData);
+      state.combination.push('r');
+      state.petsData = rotateArrayRight(state.petsData, getNumPetsForSlider(slider1));
+      updatePetsDisplay();
+      checkCombinationForShuffle();
     });
   }
 
-  const first = document.querySelector('#first');
-  const btnLeft = document.querySelector('#btnLeft');
-  const numList = document.querySelector('#numList');
-  const btnRight = document.querySelector('#btnRight');
-  const last = document.querySelector('#last');
-  maxPages = petsData2.length/getNumPetsForSlider(slider2); 
-  window.addEventListener('resize', ()=>{
-    maxPages = petsData2.length/getNumPetsForSlider(slider2);   
-  })
+  // пагинация — сразу, не ждём window.load
+  initializePagination();
+  updatePetsDisplay();
 
-
-  if (first && btnLeft && numList && btnRight &&last) {
-    // Функция, которая будет выполнять настройку элементов при загрузке страницы
-  function initializePagination() {
-    console.log(petsData2)
-    // Устанавливаем класс 'inactive' для кнопок first и btnLeft
-    first.classList.add('inactive');
-    btnLeft.classList.add('inactive');  
-
-    // Устанавливаем значение текущей страницы в numList
-    numList.textContent = '1';
-
-    // Делаем кнопки btnRight и last активными, так как мы на первой странице
-    btnRight.classList.remove('inactive');
-    last.classList.remove('inactive');
-
-    // Назначаем обработчики событий на кнопки
-    btnRight.addEventListener('click', goToNextPage);
-    last.addEventListener('click', goToLastPage);
-    first.addEventListener('click', goToFirstPage);
-    btnLeft.addEventListener('click', goToPreviousPage);
-
-  }
-
-  // Функция для перехода на предыдущую страницу
-  function goToPreviousPage() {
-    let currentPage = parseInt(numList.textContent);
- 
-
-    if (currentPage > 1) {
-        currentPage--;
-        numList.textContent = currentPage;
-        updatePetsDisplay(petsData, petsData2.slice(getNumPetsForSlider(slider2)*(currentPage-1)))      
-
-        // Если мы на первой странице, делаем first и btnLeft неактивными
-        if (currentPage === 1) {
-            first.classList.add('inactive');
-            btnLeft.classList.add('inactive');
-            updatePetsDisplay(petsData, petsData2)
-        }
-
-        // Если мы перешли с последней страницы, делаем btnRight и last активными
-        if (currentPage < maxPages) {
-            btnRight.classList.remove('inactive');
-            last.classList.remove('inactive');
-        }
-    }
-  }
-
-  // Функция для перехода на следующую страницу
-  function goToNextPage() {
-    let currentPage = parseInt(numList.textContent);
-
-    if(!btnRight.classList.contains('inactive')){
-      updatePetsDisplay(petsData, petsData2.slice(getNumPetsForSlider(slider2)*(currentPage)));  
-    }
-
-    if (currentPage < maxPages) {
-        currentPage++;
-        numList.textContent = currentPage;
-
-
-        // Если мы на последней странице, делаем btnRight и last неактивными
-        if (currentPage === maxPages) {
-            btnRight.classList.add('inactive');
-            last.classList.add('inactive');
-        }
-
-        // Если мы перешли со страницы 1, делаем first и btnLeft активными
-        if (currentPage > 1) {
-            first.classList.remove('inactive');
-            btnLeft.classList.remove('inactive');
-        }
-    }
-    
-  }
-
-  // Функция для перехода на последнюю страницу
-  function goToLastPage() {
-    if(!last.classList.contains('inactive')){
-      updatePetsDisplay(petsData, petsData2.slice(-petsData2.length/maxPages));      
-    } 
-    numList.textContent = maxPages;
-
-      // Делаем btnRight и last неактивными, так как мы на последней странице
-    btnRight.classList.add('inactive');
-    last.classList.add('inactive');
-
-    // Делаем first и btnLeft активными
-    first.classList.remove('inactive');
-    btnLeft.classList.remove('inactive');
-  }
-
-  // Функция для перехода на первую страницу
-  function goToFirstPage() {
-
-    if(!first.classList.contains('inactive')){
-      updatePetsDisplay(petsData, petsData2);      
-    }  
-    numList.textContent = '1';  
-
-    // Делаем first и btnLeft неактивными, так как мы на первой странице
-    first.classList.add('inactive');
-    btnLeft.classList.add('inactive');
-
-    // Делаем btnRight и last активными
-    btnRight.classList.remove('inactive');
-    last.classList.remove('inactive');
-     
-  }
-  
-    // Вызываем функцию initializePagination при загрузке страницы
-    window.addEventListener('load', initializePagination);   
-    
-    window.addEventListener('resize', () => {
-      maxPages = Math.ceil(petsData2.length / getNumPetsForSlider(slider2));  
-      const currentPage = parseInt(numList.textContent);
-    
-      // Если текущая страница больше новой максимальной страницы, переходим на последнюю доступную
-      if (currentPage > maxPages) {
-        goToLastPage();
-      } else {
-        // Обновляем отображение текущей страницы
-        updatePetsDisplay(petsData, petsData2.slice(getNumPetsForSlider(slider2) * (currentPage - 1)));
-      }
-    
-      // Обновляем состояние кнопок пагинации
-      if (currentPage === 1) {
-        first.classList.add('inactive');
-        btnLeft.classList.add('inactive');
-        btnRight.classList.remove('inactive');
-        last.classList.remove('inactive');
-      } else if (currentPage === maxPages) {
-        first.classList.remove('inactive');
-        btnLeft.classList.remove('inactive');
-        btnRight.classList.add('inactive');
-        last.classList.add('inactive');
-      } else {
-        first.classList.remove('inactive');
-        btnLeft.classList.remove('inactive');
-        btnRight.classList.remove('inactive');
-        last.classList.remove('inactive');
-      }
-    });
-    
-  }
-      
-}})
+  window.addEventListener('resize', handleResize);
+}).catch(err => {
+  console.error('Инициализация слайдеров не удалась:', err);
+});
