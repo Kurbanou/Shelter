@@ -200,7 +200,7 @@ function closePopup(popup) {
 // --- Загрузка данных ---
 async function loadPetsData() {
   try {
-    const response = await fetch('../shelter/assets/js/petsBase.json');
+    const response = await fetch('/assets/js/petsBase.json');
     const data = await response.json();
     shuffleArray(data);
     return data;
